@@ -3,6 +3,7 @@
   "description": "DeepSeek Harness desktop launcher: Electron window over an isolated local dsh web host",
   "version": "0.1.0-rc.7",
   "desktopName": "ai.deepseek.dsh.desktop",
+  "homepage": "https://github.com/cupide007/deepseek-harness",
   "private": true,
   "type": "module",
   "main": "lib/main.js",
@@ -47,6 +48,7 @@
       ],
       "category": "Development",
       "executableName": "deepseek-harness",
+      "maintainer": "DeepSeek Harness",
       "syncDesktopName": true
     }
   },

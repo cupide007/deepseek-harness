@@ -7,6 +7,7 @@ export default defineConfig({
   format: ['esm'],
   platform: 'node',
   target: 'es2024',
+  deps: { neverBundle: ['electron'] },
   fixedExtension: false,
   dts: false,
   clean: false,
