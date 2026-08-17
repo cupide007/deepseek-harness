@@ -1,0 +1,112 @@
+name: Release desktop installers
+
+on:
+  push:
+    tags:
+      - desktop-v*
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            runner: windows-2025
+            target: win
+            arch: x64
+          - name: Linux x64
+            runner: ubuntu-24.04
+            target: linux
+            arch: x64
+          - name: macOS Intel
+            runner: macos-13
+            target: mac
+            arch: x64
+          - name: macOS Apple Silicon
+            runner: macos-latest
+            target: mac
+            arch: arm64
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build application
+        run: pnpm run build
+
+      - name: Build installer
+        run: >-
+          pnpm --filter @deepseek-ai/dsh-desktop run package --
+          --${{ matrix.target }} --${{ matrix.arch }}
+
+      - name: Add checksums
+        shell: pwsh
+        env:
+          TARGET: ${{ matrix.target }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          $files = Get-ChildItem apps/desktop/release -File
+          if ($files.Count -eq 0) { throw 'electron-builder produced no installer files' }
+          $lines = foreach ($file in $files) {
+            $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file.FullName).Hash.ToLowerInvariant()
+            "$hash  $($file.Name)"
+          }
+          $lines | Set-Content -NoNewline "apps/desktop/release/SHA256SUMS-$env:TARGET-$env:ARCH.txt"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: desktop-${{ matrix.target }}-${{ matrix.arch }}
+          path: apps/desktop/release/**
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/desktop-v')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create or update release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          $assets = @(Get-ChildItem release-assets -File -Recurse | Select-Object -ExpandProperty FullName)
+          if ($assets.Count -eq 0) { throw 'No desktop assets were downloaded' }
+          gh release view $env:TAG --repo $env:REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:TAG --repo $env:REPOSITORY --clobber @assets
+          } else {
+            gh release create $env:TAG --repo $env:REPOSITORY --generate-notes @assets
+          }

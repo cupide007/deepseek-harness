@@ -218,7 +218,7 @@ All four quadrant full forms pass through `onEnvelope`; the base implementation 
 | `InProcessApiClient` | apiproxy itself | the injected `{ fetch }` handler | **The isomorphic point**: `new InProcessApiClient(toFetchHandler(api))` never touches the network yet runs the real wire serialization/zod/SSE framing; carrier tests and callers can exercise the protocol without opening a port, while product `dsh --profile headless` drives core directly |
 | `WebApiClient` | dsh-client-connection | `globalThis.fetch` uplink + one same-origin WebSocket downlink per logical stream | the browser client; physical boundary in the [WebSocket downlink carrier](2026-08-04-websocket-downlink-carrier.md) |
 | `FixtureApiClient` | dsh-client-connection | unused (protocol-layer override) | serverless UI development (`?fixture`): overrides the `callUnary`/`openMux`/`openHost`/`respond` virtuals and is itself the fake server (frame rpcIds minted by it, semantics self-consistent) |
-| IPC bridge subclass (hypothetical example — no such shell exists) | an Electron shell | IPC serialization round trip | would swap only doFetch; contract and base class unchanged |
+| IPC bridge subclass | a future Electron shell | IPC serialization round trip | would swap only doFetch; contract and base class unchanged; the shipped [desktop launcher](2026-08-18-loopback-electron-desktop-launcher.md) currently uses the Web carrier over a loopback host |
 
 ## How to extend (operational checklists)
 
